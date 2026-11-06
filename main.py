@@ -70,7 +70,7 @@ def hash_password(password: str) -> str:
     return f"{iterations}${salt}${key.hex()}"
 
 def encrypt_password(password: str) -> str:
-    encrypted_bytes = fernet.encrypt(new_password.encode('utf-8'))
+    encrypted_bytes = fernet.encrypt(password.encode('utf-8'))
     encrypted_string = encrypted_bytes.decode('utf-8')
     return encrypted_string
 
