@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from enum import Enum
 from datetime import datetime
 from sqlalchemy import create_engine, ForeignKey, String, func, select
@@ -132,7 +133,7 @@ if not st.session_state.logged_in:
 
         with tab_2:
             with st.container():
-                with st.form("Create An Account"):
+                with st.form("Create An Account", clear_on_submit=True):
                     new_user = st.text_input("Username", placeholder="Choose a unique username")
                     new_email = st.text_input("Email Address", placeholder="e.g., name@example.com")
                     new_password = st.text_input("Password", type="password", placeholder="Enter a strong password")
@@ -150,21 +151,22 @@ if not st.session_state.logged_in:
                             user = User(
                                 username=new_user,
                                 email=new_email,
-                                password_Hash=hash_password(new_password))
+                                password_Hash=hash_password(new_password),
+                                role = "user")
                             session.add(user)
                             session.commit()
                             st.rerun()
 else:
     st.header("Welcome")
 
-    st.write(f"{st.session_state.id}, {st.session_state.user}, {st.session_state.role}, {st.session_state.email}")
+    st.write(f"User ID:{st.session_state.id}, User Name: {st.session_state.user}, Role: {st.session_state.role}, Contact Email: {st.session_state.email}")
     if st.session_state.role == 'Admin':
-        tab_1, tab_2, tab_3 = st.tabs(['Login', 'New', 'Manage Users'])
+        tab_1, tab_2, tab_3 = st.tabs(['Accounts', 'New', 'Manage Users'])
         with tab_3:
-            st.write("Accounts")
             accounts = get_accounts()
-            for account in accounts:
-                st.write(account[1])
+            df = pd.DataFrame(accounts)
+            df_clean = df.drop(columns=["id", "password"], errors="ignore")
+            st.dataframe(df_clean, column_order=["username", "email", "role"])
 
     else:
         tab_1, tab_2 = st.tabs(['Login', 'New'])
@@ -181,7 +183,7 @@ else:
     with tab_2:
         st.write(st.session_state.id)
         with st.container():
-            with st.form("New"):
+            with st.form("New", clear_on_submit=True):
                 new_user = st.text_input("Username", placeholder="")
                 new_password = st.text_input("Password", type="password")
                 submit_button = st.form_submit_button("Register Account")
