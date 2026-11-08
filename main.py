@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 import hashlib, os, secrets
 from cryptography.fernet import Fernet
 
-engine = create_engine('sqlite:///pwm.db', echo=True)
+engine = create_engine('sqlite:///pwm.db', echo=False)
 KEY_FILE = "secret.key"
 
 Session = sessionmaker(bind=engine)
@@ -58,8 +58,10 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    url: Mapped[str] = mapped_column(String(250))
     account: Mapped[str] = mapped_column(String(100))
     password: Mapped[str] = mapped_column(String(125))
+    notes: Mapped[str] = mapped_column(String(255))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     last_updated: Mapped[str] = mapped_column(String, server_default=func.datetime('now'))
 
@@ -87,6 +89,10 @@ def load_or_create_key():
             key = f.read()
     return Fernet(key)
 
+
+def handle_submit():
+    st.session_state.my_tabs = "accounts"
+
 fernet = load_or_create_key()
 
 #Base.metadata.drop_all(engine)
@@ -98,7 +104,6 @@ if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
 if not st.session_state.logged_in:
-
     if is_admin_setup() == 0:
         st.header("Create an Administrative Account")
         with st.container():
@@ -158,48 +163,46 @@ if not st.session_state.logged_in:
                             st.rerun()
 else:
     st.header("Welcome")
-
     st.write(f"User ID:{st.session_state.id}, User Name: {st.session_state.user}, Role: {st.session_state.role}, Contact Email: {st.session_state.email}")
     if st.session_state.role == 'Admin':
-        tab_1, tab_2, tab_3 = st.tabs(['Accounts', 'New', 'Manage Users'])
+        tab_1, tab_2, tab_3 = st.tabs(['Accounts', 'New', 'Manage Users'], key="my_tabs", on_change="rerun")
         with tab_3:
             accounts = get_accounts()
             df = pd.DataFrame(accounts)
             df_clean = df.drop(columns=["id", "password"], errors="ignore")
             st.dataframe(df_clean, column_order=["username", "email", "role"])
-
     else:
-        tab_1, tab_2 = st.tabs(['Login', 'New'])
+        tab_1, tab_2 = st.tabs(['Accounts', 'New'], key="my_tabs", on_change="rerun")
     with tab_1:
-        st.write(st.session_state.logged_in)
         result = session.execute(select(Account))
         for row in result:
             bytes_to_decrypt = row.Account.password.encode('utf-8')
             decrypted_bytes = fernet.decrypt(bytes_to_decrypt)
             decrypted_message = decrypted_bytes.decode('utf-8')
             st.write(f"Username: {row.Account.account}, Password: {decrypted_message}")
-
-
     with tab_2:
-        st.write(st.session_state.id)
         with st.container():
             with st.form("New", clear_on_submit=True):
+                new_url = st.text_input("URL", placeholder="")
                 new_user = st.text_input("Username", placeholder="")
                 new_password = st.text_input("Password", type="password")
-                submit_button = st.form_submit_button("Register Account")
-
+                new_note = st.text_area("", height=200, placeholder="")
+                submit_button = st.form_submit_button("Register Account", on_click=handle_submit)
             if submit_button:
                 now = datetime.now()
                 with Session() as session:
                     account = Account(
+                        url=new_url,
                         account=new_user,
                         password=encrypt_password(new_password),
                         user_id=st.session_state.id,
-                        last_updated=now
+                        last_updated=now,
+                        notes=new_note
                     )
                     session.add(account)
                     session.commit()
-                    st.rerun()
+                    #st.session_state.my_tabs = "Accounts"
+
     if st.button('Log Out'):
         st.session_state["logged_in"] = False
         st.rerun()
