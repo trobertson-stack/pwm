@@ -114,16 +114,17 @@ if not st.session_state.logged_in:
                 is_admin = st.checkbox("Is Admin?", value=True)
                 submitted = st.form_submit_button("Submit")
 
-            if submitted:
-                with Session() as session:
-                    user = User(
-                    username = new_user,
-                    email = new_email,
-                    password_Hash = hash_password(new_password),
-                    role = 'Admin')
-                    session.add(user)
-                    session.commit()
-                    st.rerun()
+        if submitted:
+            with Session() as session:
+                print('clicked')
+                user = User(
+                username = new_user,
+                email = new_email,
+                password_Hash = hash_password(new_password),
+                role = 'Admin')
+                session.add(user)
+                session.commit()
+                st.rerun()
     else:
         st.header("Please Login or Create an Account")
         tab_1, tab_2 = st.tabs(['Login','Create an Account'])
@@ -174,12 +175,17 @@ else:
     else:
         tab_1, tab_2 = st.tabs(['Accounts', 'New'], key="my_tabs", on_change="rerun")
     with tab_1:
-        result = session.execute(select(Account))
+        if st.session_state.role == 'Admin':
+            result = session.execute(select(Account))
+        elif st.session_state.role == 'user':
+            result = session.execute(select(Account).where(Account.user_id == st.session_state.id))
+
         for row in result:
             bytes_to_decrypt = row.Account.password.encode('utf-8')
             decrypted_bytes = fernet.decrypt(bytes_to_decrypt)
             decrypted_message = decrypted_bytes.decode('utf-8')
-            st.write(f"Username: {row.Account.account}, Password: {decrypted_message}")
+            st.write(f"URL: {row.Account.url} Username: {row.Account.account}, Password: {decrypted_message}")
+
     with tab_2:
         with st.container():
             with st.form("New", clear_on_submit=True):
@@ -201,7 +207,7 @@ else:
                     )
                     session.add(account)
                     session.commit()
-                    #st.session_state.my_tabs = "Accounts"
+                    st.rerun()
 
     if st.button('Log Out'):
         st.session_state["logged_in"] = False
