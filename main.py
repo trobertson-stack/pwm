@@ -174,17 +174,28 @@ else:
             st.dataframe(df_clean, column_order=["username", "email", "role"])
     else:
         tab_1, tab_2 = st.tabs(['Accounts', 'New'], key="my_tabs", on_change="rerun")
-    with tab_1:
+    with (tab_1):
         if st.session_state.role == 'Admin':
-            result = session.execute(select(Account))
+            result = session.execute(select(User))
+            users = result.scalars().all()
+            for user in users:
+                with st.expander(f'{user.username}, {user.email}'):
+                    result = session.execute(select(Account).where(Account.user_id == user.id))
+                    for row in result:
+                        with st.expander(row.Account.url):
+                            bytes_to_decrypt = row.Account.password.encode('utf-8')
+                            decrypted_bytes = fernet.decrypt(bytes_to_decrypt)
+                            decrypted_message = decrypted_bytes.decode('utf-8')
+                            st.write(f"URL: {row.Account.url} Username: {row.Account.account}, Password: {decrypted_message}")
+
         elif st.session_state.role == 'user':
             result = session.execute(select(Account).where(Account.user_id == st.session_state.id))
-
-        for row in result:
-            bytes_to_decrypt = row.Account.password.encode('utf-8')
-            decrypted_bytes = fernet.decrypt(bytes_to_decrypt)
-            decrypted_message = decrypted_bytes.decode('utf-8')
-            st.write(f"URL: {row.Account.url} Username: {row.Account.account}, Password: {decrypted_message}")
+            for row in result:
+                with st.expander(f'{row.Account.url}'):
+                    bytes_to_decrypt = row.Account.password.encode('utf-8')
+                    decrypted_bytes = fernet.decrypt(bytes_to_decrypt)
+                    decrypted_message = decrypted_bytes.decode('utf-8')
+                    st.write(f"URL: {row.Account.url} Username: {row.Account.account}, Password: {decrypted_message}")
 
     with tab_2:
         with st.container():
