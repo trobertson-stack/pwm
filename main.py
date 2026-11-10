@@ -214,10 +214,6 @@ else:
                                             conn.execute(stmt)
                                             conn.commit()
                                             st.rerun()
-
-
-
-
         elif st.session_state.role == 'user':
             result = session.execute(select(Account).where(Account.user_id == st.session_state.id))
             for row in result:
