@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from enum import Enum
 from datetime import datetime
-from sqlalchemy import create_engine, ForeignKey, String, func, select
+from sqlalchemy import create_engine, ForeignKey, String, func, select, delete, update
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 import hashlib, os, secrets
 from cryptography.fernet import Fernet
@@ -93,6 +93,9 @@ def load_or_create_key():
 def handle_submit():
     st.session_state.my_tabs = "accounts"
 
+def handle_update(row_id):
+    pass
+
 fernet = load_or_create_key()
 
 #Base.metadata.drop_all(engine)
@@ -164,7 +167,7 @@ if not st.session_state.logged_in:
                             st.rerun()
 else:
     st.header("Welcome")
-    st.write(f"User ID:{st.session_state.id}, User Name: {st.session_state.user}, Role: {st.session_state.role}, Contact Email: {st.session_state.email}")
+    st.write(f"{st.session_state.user}, Role: {st.session_state.role}, Contact Email: {st.session_state.email}")
     if st.session_state.role == 'Admin':
         tab_1, tab_2, tab_3 = st.tabs(['Accounts', 'New', 'Manage Users'], key="my_tabs", on_change="rerun")
         with tab_3:
@@ -187,6 +190,33 @@ else:
                             decrypted_bytes = fernet.decrypt(bytes_to_decrypt)
                             decrypted_message = decrypted_bytes.decode('utf-8')
                             st.write(f"URL: {row.Account.url} Username: {row.Account.account}, Password: {decrypted_message}")
+                            with st.expander("Update Account", expanded=True):
+                                new_password = st.text_input("New User password", type="password", key=f"new password {row.Account.id}")
+                                u_col, d_col = st.columns(2)
+                                with u_col:
+                                    if st.button("Update", key=f"btnu_{row.Account.id}"):
+                                        if new_password:
+                                            stmt = (
+                                        update(Account)
+                                        .where(Account.id == row.Account.id)
+                                        .values(password=encrypt_password(new_password))
+                                        )
+                                        with engine.connect() as conn:
+                                            conn.execute(stmt)
+                                            conn.commit()
+                                        st.rerun()
+                                    else:
+                                        st.warning("Please enter a password.")
+                                with d_col:
+                                    if st.button("Delete", key=f"btnd {row.Account.id}"):
+                                        stmt = delete(Account).where(Account.id == row.Account.id)
+                                        with engine.connect() as conn:
+                                            conn.execute(stmt)
+                                            conn.commit()
+                                            st.rerun()
+
+
+
 
         elif st.session_state.role == 'user':
             result = session.execute(select(Account).where(Account.user_id == st.session_state.id))
@@ -197,13 +227,14 @@ else:
                     decrypted_message = decrypted_bytes.decode('utf-8')
                     st.write(f"URL: {row.Account.url} Username: {row.Account.account}, Password: {decrypted_message}")
 
+
     with tab_2:
         with st.container():
             with st.form("New", clear_on_submit=True):
                 new_url = st.text_input("URL", placeholder="")
                 new_user = st.text_input("Username", placeholder="")
                 new_password = st.text_input("Password", type="password")
-                new_note = st.text_area("", height=200, placeholder="")
+                new_note = st.text_area("Notes", height=200, placeholder="")
                 submit_button = st.form_submit_button("Register Account", on_click=handle_submit)
             if submit_button:
                 now = datetime.now()
